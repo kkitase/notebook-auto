@@ -29,6 +29,7 @@ const CONFIG = {
     long: 3000,
     veryLong: 8000,
   },
+  closeWait: 30000, // デフォルト30秒
 };
 
 /** Utility: Sleep */
@@ -69,6 +70,18 @@ function loadConfig() {
         const match = trimmed.match(/SYNC_MODE=(.+)/);
         if (match && currentNotebook) {
           currentNotebook.syncMode = match[1].toLowerCase().includes("true");
+        }
+        continue;
+      }
+
+      // 終了待機時間設定
+      if (trimmed.startsWith("CLOSE_WAIT_SEC=")) {
+        const match = trimmed.match(/CLOSE_WAIT_SEC=(.+)/);
+        if (match) {
+          const sec = parseInt(match[1].trim(), 10);
+          if (!isNaN(sec)) {
+            CONFIG.closeWait = sec * 1000;
+          }
         }
         continue;
       }
@@ -588,9 +601,9 @@ async function main() {
       }
     }
 
-    console.log("\n🎉 全てのノートブックの処理が完了しました！");
-    console.log("30秒後にブラウザを閉じます...");
-    await sleep(30000);
+    console.log(`\n🎉 全てのノートブックの処理が完了しました！`);
+    console.log(`${CONFIG.closeWait / 1000}秒後にブラウザを閉じます...`);
+    await sleep(CONFIG.closeWait);
   } catch (error) {
     console.error("\n❌ 実行エラー:", error);
   } finally {
