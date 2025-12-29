@@ -466,15 +466,15 @@ async function addUrlsToNotebook(page, urls) {
 /** MAIN */
 async function main() {
   console.log(
-    "🚀 NotebookLM URL Auto-Add (Playwright版) - Robust Sync & Stable Add"
+    "🚀 NotebookLM URL Auto-Add (Playwright版) - Multi-Notebook Support"
   );
   console.log(
     "================================================================\n"
   );
 
-  const { notebookUrl, urls } = loadConfig();
-  if (!notebookUrl || urls.length === 0) {
-    console.log("❌ 設定不足");
+  const { notebooks, allUrls } = loadConfig();
+  if (notebooks.length === 0) {
+    console.log("❌ 設定不足（ノートブックが設定されていません）");
     return;
   }
 
@@ -486,108 +486,68 @@ async function main() {
     args: ["--no-first-run", "--disable-search-engine-choice-screen"],
   });
 
-  const urlTitles = await fetchPageTitles(context, urls);
-  const page = await context.newPage();
-
-  console.log(`\n📖 NotebookLMへ移動: ${notebookUrl.substring(0, 40)}...`);
-  await page.goto(notebookUrl, {
-    waitUntil: "domcontentloaded",
-    timeout: 60000,
-  });
-
-  // Interactive Mode
-  console.log("\n" + "=".repeat(60));
-  console.log("🛑 【ユーザー操作が必要です】");
-  console.log(
-    "1. Chrome等のエラー/復元ダイアログが出ている場合は閉じてください。"
-  );
-  console.log(
-    "2. Googleアカウントにログインし、NotebookLMの画面が表示されるまで待ってください。"
-  );
-  console.log(
-    "3. 準備ができたら、このターミナルで [Enter] キーを押してください..."
-  );
-  console.log("=".repeat(60));
-
-  await new Promise((resolve) => {
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout,
-    });
-    rl.question("", () => {
-      rl.close();
-      resolve();
-    });
-  });
-
-  console.log("▶️ 処理を再開します...");
   try {
-    await page.bringToFront();
-  } catch (e) {}
+    // 1. 全てのユニークURLのタイトルを一括取得
+    const urlTitles = await fetchPageTitles(context, allUrls);
+    const page = await context.newPage();
 
-  console.log("🔍 ソース一覧へ移動...");
-  const sourceTab = page
-    .locator('div[role="tab"], button[role="tab"]')
-    .filter({ hasText: /^ソース$/ });
-  if ((await sourceTab.count()) > 0) {
-    await sourceTab.first().click({ force: true });
-    await sleep(CONFIG.waitTime.medium);
-  }
+    // 2. 各ノートブックを順番に処理
+    for (let i = 0; i < notebooks.length; i++) {
+      const { notebookUrl, urls, syncMode } = notebooks[i];
+      console.log(`\n🔄 [${i + 1}/${notebooks.length}] 処理中: ${notebookUrl}`);
+      console.log(
+        "================================================================"
+      );
 
-  // 2. クリーンアップ
-  if (CONFIG.syncMode) {
-    await syncSources(page, urlTitles);
-  } else {
-    console.log(
-      "\n🧹 SYNC_MODE=false のため、クリーンアップはスキップします。"
-    );
-  }
+      await page.goto(notebookUrl, { waitUntil: "networkidle" });
 
-  // 3. 不足分の追加
-  console.log("\n" + "=".repeat(50));
-  console.log("➕ [フェーズ2] 不足ソースの追加チェック");
-  console.log("=".repeat(50));
+      // ログイン待機（最初のノートブック、かつセッションがない場合）
+      if (i === 0) {
+        const loggedIn = await waitForManualLogin(page);
+        if (!loggedIn) {
+          console.log("❌ ログインが確認できなかったため、中断します");
+          break;
+        }
+      } else {
+        // 2つ目以降は少し待機して安定させる
+        await sleep(CONFIG.waitTime.long);
+      }
 
-  const sourceTabRe = page
-    .locator('div[role="tab"], button[role="tab"]')
-    .filter({ hasText: /^ソース$/ });
-  if ((await sourceTabRe.count()) > 0) {
-    if ((await sourceTabRe.first().getAttribute("aria-selected")) !== "true") {
-      await sourceTabRe.first().click({ force: true });
-      await sleep(CONFIG.waitTime.medium);
+      // 同期（古いソースの削除）
+      const configItems = urls.map((url) => ({
+        url,
+        title: urlTitles[url] || "",
+      }));
+      await syncSources(page, configItems, syncMode);
+
+      // 追加
+      const missingUrls = [];
+      const { rows } = await getExistingSourceRows(page);
+      for (const url of urls) {
+        const title = urlTitles[url] || "";
+        const exists = rows.some((row) => isMatch(row.title, title, url));
+        if (!exists) missingUrls.push(url);
+      }
+
+      if (missingUrls.length > 0) {
+        console.log(
+          `\n➕ 不足しているURLを追加します (${missingUrls.length}件)`
+        );
+        await addUrlsToNotebook(page, missingUrls);
+      } else {
+        console.log("\n✨ 全てのURLが登録済みです。");
+      }
     }
+
+    console.log("\n🎉 全てのノートブックの処理が完了しました！");
+    console.log("30秒後にブラウザを閉じます...");
+    await sleep(30000);
+  } catch (error) {
+    console.error("\n❌ 実行エラー:", error);
+  } finally {
+    await context.close();
+    process.exit(0);
   }
-
-  const currentRows = await getExistingSourceRows(page);
-  console.log(`📋 現在のソース数: ${currentRows.length}`);
-
-  const configItems = Object.keys(urlTitles).map((url) => ({
-    url,
-    title: urlTitles[url],
-  }));
-
-  // 未登録URLを収集
-  const urlsToAdd = [];
-  for (const config of configItems) {
-    const exists = currentRows.some((row) => isMatch(row, config));
-    if (exists) {
-      console.log(`  ⏭️ 登録済み: ${config.title.substring(0, 30)}...`);
-    } else {
-      console.log(`  🆕 未登録: ${config.title.substring(0, 30)}...`);
-      urlsToAdd.push(config.url);
-    }
-  }
-
-  // 一括追加
-  if (urlsToAdd.length > 0) {
-    await addUrlsToNotebook(page, urlsToAdd);
-  }
-
-  console.log("\n" + "=".repeat(50));
-  console.log(`🎉 完了: 新規追加 ${urlsToAdd.length} 件`);
-  console.log("30秒後に終了します...");
-  await sleep(30000);
-  await context.close();
 }
 
-main().catch(console.error);
+main();
