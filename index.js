@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * NotebookLM URL Auto-Add
  * Node.js + Playwright版
