@@ -563,7 +563,7 @@ async function main() {
 
       // 追加
       const missingUrls = [];
-      const { rows } = await getExistingSourceRows(page);
+      const rows = await getExistingSourceRows(page);
       for (const url of urls) {
         const title = urlTitles[url] || "";
         const exists = rows.some((row) => isMatch(row.title, title, url));
