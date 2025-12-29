@@ -181,50 +181,57 @@ async function getExistingSourceRows(page) {
 }
 
 /** Check Match */
-function isMatch(rowTitleOrObj, configTitleOrObj, url = null, debug = false) {
-  const rowTitle =
-    typeof rowTitleOrObj === "string" ? rowTitleOrObj : rowTitleOrObj?.title;
-  const configTitle =
-    typeof configTitleOrObj === "string"
-      ? configTitleOrObj
-      : configTitleOrObj?.title;
+function isMatch(row, config, debug = false) {
+  const rowTitle = row?.title || "";
+  const configTitle = config?.title || "";
+  const configUrl = config?.url || "";
 
   const rowTitleNorm = normalizeString(rowTitle);
   const configTitleNorm = normalizeString(configTitle);
 
   if (debug) {
-    console.log(`      [比較] config: "${configTitle?.substring(0, 40)}..."`);
+    console.log(
+      `      [比較] config: "${(configTitle || configUrl).substring(0, 40)}..."`
+    );
     console.log(
       `        正規化後: row="${rowTitleNorm.substring(
         0,
         25
-      )}..." vs config="${configTitleNorm.substring(0, 25)}..."`
+      )}..." vs configTitle="${configTitleNorm.substring(0, 25)}..."`
     );
   }
 
-  // タイトル一致で判定
+  // 1. タイトル一致で判定
   if (configTitleNorm.length > 0 && rowTitleNorm.length > 0) {
-    // 1. 部分一致
     if (
       rowTitleNorm.includes(configTitleNorm) ||
       configTitleNorm.includes(rowTitleNorm)
     ) {
-      if (debug) console.log(`        → ✓ 部分一致でマッチ`);
+      if (debug) console.log(`        → ✓ タイトル部分一致でマッチ`);
       return true;
     }
-
-    // 2. 先頭20文字で比較（タイトルが切り詰められている場合の対策）
     const prefixLength = 20;
-    const rowPrefix = rowTitleNorm.substring(0, prefixLength);
-    const configPrefix = configTitleNorm.substring(0, prefixLength);
-    if (rowPrefix === configPrefix) {
-      if (debug) console.log(`        → ✓ 先頭一致でマッチ`);
+    if (
+      rowTitleNorm.substring(0, prefixLength) ===
+      configTitleNorm.substring(0, prefixLength)
+    ) {
+      if (debug) console.log(`        → ✓ タイトル先頭一致でマッチ`);
       return true;
     }
-
-    if (debug) console.log(`        → ✗ 不一致`);
   }
 
+  // 2. URLフォールバック判定 (PDFなどのタイトルがうまく取れない場合)
+  // NotebookLMのソース名がURL（またはその一部）になっている場合、configUrlと比較する
+  if (configUrl) {
+    const cleanRowTitle = rowTitle.replace(/\.{3}$/, "").trim(); // 末尾の...を除去
+    if (cleanRowTitle.length > 5 && configUrl.includes(cleanRowTitle)) {
+      if (debug)
+        console.log(`        → ✓ URLフォールバックでマッチ (${cleanRowTitle})`);
+      return true;
+    }
+  }
+
+  if (debug) console.log(`        → ✗ 不一致`);
   return false;
 }
 
@@ -235,7 +242,7 @@ async function syncSources(page, configItems, syncMode = true) {
   console.log("🧹 [フェーズ1] ソース同期（分析とクリーンアップ）");
   console.log("=".repeat(50));
 
-  const validConfigItems = configItems.filter((item) => item.title !== "");
+  const validConfigItems = configItems; // タイトルなし(URLのみ)も許容する
 
   const MAX_LOOPS = 50;
   let loopCount = 0;
@@ -285,7 +292,7 @@ async function syncSources(page, configItems, syncMode = true) {
           );
           // 各config.titleとの比較をデバッグ表示
           for (const config of validConfigItems) {
-            isMatch(row, config, null, true); // debug=true
+            isMatch(row, config, true); // debug=true
           }
         }
         unlistedRows.push(row);
@@ -566,7 +573,7 @@ async function main() {
       const rows = await getExistingSourceRows(page);
       for (const url of urls) {
         const title = urlTitles[url] || "";
-        const exists = rows.some((row) => isMatch(row.title, title, url));
+        const exists = rows.some((row) => isMatch(row, { title, url }));
         if (!exists) missingUrls.push(url);
       }
 
