@@ -4,6 +4,7 @@
   "description": "NotebookLMにURLを自動的に追加するNode.jsアプリ (Playwright版)",
   "main": "index.js",
   "scripts": {
+    "setup": "npm install && npx playwright install chromium",
     "start": "node index.js"
   },
   "dependencies": {
