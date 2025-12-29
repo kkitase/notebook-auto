@@ -1,0 +1,4 @@
+playwright-session/
+node_modules/
+config.env
+note/
