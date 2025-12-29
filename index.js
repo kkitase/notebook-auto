@@ -449,6 +449,7 @@ async function main() {
   console.log("\n🌐 ブラウザ起動 & 事前準備...");
   const context = await chromium.launchPersistentContext(CONFIG.userDataDir, {
     headless: false,
+    channel: "chrome", // システムのChromeを使用
     viewport: { width: 1280, height: 800 },
     args: ["--no-first-run", "--disable-search-engine-choice-screen"],
   });
