@@ -35,13 +35,13 @@ CLOSE_WAIT_SEC=30
 # ノートブック 1
 NOTEBOOK_URL=https://notebooklm.google.com/notebook/notebook-id-1
 SYNC_MODE=true
-https://note.com/page1
-https://note.com/page2
+https://note.com/xxxxxx
+https://note.com/xxxxxx
 
 # ノートブック 2
 NOTEBOOK_URL=https://notebooklm.google.com/notebook/notebook-id-2
 SYNC_MODE=true
-https://arxiv.org/pdf/2510.11438
+https://arxiv.org/pdf/xxxxx
 ```
 
 ## 使い方
