@@ -1,16 +1,18 @@
 # NotebookLM URL Auto-Add
 
-NotebookLMにWebサイトURLを自動的に追加・同期するツールです。
+NotebookLMにWebサイトURLを自動的に追加・同期するツールです。1つの設定ファイルで複数のノートブック（プロジェクト）を管理できます。
 
 ## アーキテクチャ
 
 ![アーキテクチャ図](architecture.jpeg)
 
-## 機能
+## 主な機能
 
-- **自動追加**: 設定ファイルに記載したURLを一括で追加
-- **同期（Sync）**: リストにないソースを自動削除
-- **重複チェック**: 既存ソースとの重複を防止
+- **複数ノートブック対応**: 複数のNotebookLMプロジェクトを1度の実行でまとめて更新
+- **マルチタブ処理**: ノートブックごとに新しいタブを開いて並列（順次）処理
+- **一括追加**: 複数のURLを効率的に一括追加
+- **同期（Sync）**: リストにないソースを自動削除し、常に設定と一致させる
+- **カスタマイズ**: ブラウザを閉じるまでの時間などを設定可能
 
 ## セットアップ
 
@@ -24,19 +26,22 @@ NotebookLMにWebサイトURLを自動的に追加・同期するツールです�
 cp config.env.example config.env
 ```
 
-`config.env` の内容:
+`config.env` の記述例:
 
 ```env
-# 追加先 NotebookLM URL
-NOTEBOOK_URL=https://notebooklm.google.com/notebook/your-notebook-id
+# ブラウザを自動で閉じるまでの待機時間（秒）
+CLOSE_WAIT_SEC=30
 
-# リストにないソースを削除するか（true/false）
+# ノートブック 1
+NOTEBOOK_URL=https://notebooklm.google.com/notebook/notebook-id-1
 SYNC_MODE=true
+https://note.com/page1
+https://note.com/page2
 
-# URL リスト（1行1URL、#はコメント）
-https://example.com/page1
-https://example.com/page2
-https://example.com/page3
+# ノートブック 2
+NOTEBOOK_URL=https://notebooklm.google.com/notebook/notebook-id-2
+SYNC_MODE=true
+https://arxiv.org/pdf/2510.11438
 ```
 
 ## 使い方
@@ -50,7 +55,7 @@ npm start
 
 ### 自作コマンドとして登録する場合
 
-一度だけ以下のコマンドを実行すると、システムに `notebook-auto` コマンドが登録されます。
+一度だけ以下のコマンドを実行すると、システムに `notebook-auto` コマンドが登録され、どのディレクトリからでも実行可能になります。
 
 ```bash
 # パッケージをリンク
@@ -61,7 +66,8 @@ notebook-auto
 ```
 
 ### 補足
-本ツールはシステムにインストール済みの **Google Chrome** を使用します。別途ブラウザのインストールは不要です。
+- 本ツールはシステムにインストール済みの **Google Chrome** を使用します。
+- 最初のノートブック実行時にログイン待機が発生します。一度ログインすればセッションが保存されます。
 
 ## ファイル構成
 
