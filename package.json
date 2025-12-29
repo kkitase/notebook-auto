@@ -1,6 +1,6 @@
 {
   "name": "notebooklm-url-auto-add",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "description": "NotebookLMにURLを自動的に追加するNode.jsアプリ (Playwright版)",
   "main": "index.js",
   "scripts": {
