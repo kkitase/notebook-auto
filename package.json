@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "setup": "npm install && npx playwright install chromium",
-    "start": "node index.js"
+    "start": "[ -d node_modules ] || npm install && node index.js"
   },
   "dependencies": {
     "playwright": "^1.57.0"
