@@ -41,31 +41,63 @@ function loadConfig() {
   try {
     const content = fs.readFileSync(CONFIG.configPath, "utf-8");
     const lines = content.split("\n");
-    let notebookUrl = null;
-    const urls = [];
+    const notebooks = [];
+    const allUniqueUrls = new Set();
+
+    let currentNotebook = null;
 
     for (const line of lines) {
       const trimmed = line.trim();
       if (trimmed.startsWith("#") || trimmed === "") continue;
+
+      // 新しいノートブックセクションの開始
       if (trimmed.startsWith("NOTEBOOK_URL=")) {
         const match = trimmed.match(/NOTEBOOK_URL=(.+)/);
-        if (match && match[1].startsWith("http")) notebookUrl = match[1].trim();
+        if (match && match[1].startsWith("http")) {
+          currentNotebook = {
+            notebookUrl: match[1].trim(),
+            syncMode: true, // デフォルト
+            urls: [],
+          };
+          notebooks.push(currentNotebook);
+        }
         continue;
       }
+
+      // 同期モード設定 (現在のノートブックに対して適用)
       if (trimmed.startsWith("SYNC_MODE=")) {
         const match = trimmed.match(/SYNC_MODE=(.+)/);
-        if (match) CONFIG.syncMode = match[1].toLowerCase().includes("true");
+        if (match && currentNotebook) {
+          currentNotebook.syncMode = match[1].toLowerCase().includes("true");
+        }
         continue;
       }
-      if (trimmed.startsWith("http")) urls.push(trimmed);
+
+      // URL リスト (現在のノートブックに追加)
+      if (trimmed.startsWith("http")) {
+        if (currentNotebook) {
+          currentNotebook.urls.push(trimmed);
+        }
+        allUniqueUrls.add(trimmed);
+      }
     }
-    console.log(`📋 ノートブックURL: ${notebookUrl || "未設定"}`);
-    console.log(`📋 ${urls.length} 件のソースURLを読み込みました`);
-    console.log(`📋 SYNC_MODE: ${CONFIG.syncMode}`);
-    return { notebookUrl, urls };
+
+    console.log(
+      `📋 設定から ${notebooks.length} 件のノートブックを読み込みました`
+    );
+    notebooks.forEach((nb, i) => {
+      console.log(
+        `  📓 [${i + 1}] URL: ${nb.notebookUrl} (${nb.urls.length}件, SYNC:${
+          nb.syncMode
+        })`
+      );
+    });
+    console.log(`📋 総ユニークURL数: ${allUniqueUrls.size} 件`);
+
+    return { notebooks, allUrls: Array.from(allUniqueUrls) };
   } catch (error) {
     console.error("❌ 設定ファイルの読み込みに失敗:", error.message);
-    return { notebookUrl: null, urls: [] };
+    return { notebooks: [], allUrls: [] };
   }
 }
 
