@@ -499,7 +499,10 @@ async function main() {
         "================================================================"
       );
 
-      await page.goto(notebookUrl, { waitUntil: "networkidle" });
+      await page.goto(notebookUrl, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      });
 
       // ログイン待機（最初のノートブック、かつセッションがない場合）
       if (i === 0) {
