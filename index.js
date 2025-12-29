@@ -181,14 +181,19 @@ async function getExistingSourceRows(page) {
 }
 
 /** Check Match */
-function isMatch(row, configItem, debug = false) {
-  const rowTitleNorm = normalizeString(row.title);
-  const configTitleNorm = normalizeString(configItem.title);
+function isMatch(rowTitleOrObj, configTitleOrObj, url = null, debug = false) {
+  const rowTitle =
+    typeof rowTitleOrObj === "string" ? rowTitleOrObj : rowTitleOrObj?.title;
+  const configTitle =
+    typeof configTitleOrObj === "string"
+      ? configTitleOrObj
+      : configTitleOrObj?.title;
+
+  const rowTitleNorm = normalizeString(rowTitle);
+  const configTitleNorm = normalizeString(configTitle);
 
   if (debug) {
-    console.log(
-      `      [比較] config: "${configItem.title.substring(0, 40)}..."`
-    );
+    console.log(`      [比較] config: "${configTitle?.substring(0, 40)}..."`);
     console.log(
       `        正規化後: row="${rowTitleNorm.substring(
         0,
@@ -224,15 +229,13 @@ function isMatch(row, configItem, debug = false) {
 }
 
 /** Action: Sync */
-async function syncSources(page, urlTitles) {
-  if (!CONFIG.syncMode) return;
+async function syncSources(page, configItems, syncMode = true) {
+  if (!syncMode) return;
   console.log("\n" + "=".repeat(50));
   console.log("🧹 [フェーズ1] ソース同期（分析とクリーンアップ）");
   console.log("=".repeat(50));
 
-  const configItems = Object.keys(urlTitles)
-    .map((url) => ({ url: url, title: urlTitles[url] }))
-    .filter((item) => item.title !== "");
+  const validConfigItems = configItems.filter((item) => item.title !== "");
 
   const MAX_LOOPS = 50;
   let loopCount = 0;
@@ -257,13 +260,13 @@ async function syncSources(page, urlTitles) {
     let deleteTitle = "";
 
     const matches = {};
-    configItems.forEach((c) => (matches[c.url] = []));
+    validConfigItems.forEach((c) => (matches[c.url] = []));
     const unlistedRows = [];
 
     for (let i = 0; i < currentRows.length; i++) {
       const row = currentRows[i];
       let matchedUrl = null;
-      for (const config of configItems) {
+      for (const config of validConfigItems) {
         if (isMatch(row, config)) {
           matchedUrl = config.url;
           break;
@@ -281,8 +284,8 @@ async function syncSources(page, urlTitles) {
             )}..."`
           );
           // 各config.titleとの比較をデバッグ表示
-          for (const config of configItems) {
-            isMatch(row, config, true); // debug=true
+          for (const config of validConfigItems) {
+            isMatch(row, config, null, true); // debug=true
           }
         }
         unlistedRows.push(row);
@@ -290,7 +293,7 @@ async function syncSources(page, urlTitles) {
     }
 
     // リスト外削除のみ実行
-    if (CONFIG.syncMode && unlistedRows.length > 0) {
+    if (unlistedRows.length > 0) {
       targetRow = unlistedRows[0];
       deleteReason = "リスト外 (Sync Mode)";
       deleteTitle = targetRow.title;
@@ -461,6 +464,41 @@ async function addUrlsToNotebook(page, urls) {
     } catch {}
     return { success: false, error: error.message };
   }
+}
+
+/** Action: Wait for Manual Login */
+async function waitForManualLogin(page) {
+  console.log("\n" + "=".repeat(60));
+  console.log("🛑 【ユーザー操作が必要です】");
+  console.log(
+    "1. Chrome等のエラー/復元ダイアログが出ている場合は閉じてください。"
+  );
+  console.log(
+    "2. Googleアカウントにログインし、NotebookLMの画面が表示されるまで待ってください。"
+  );
+  console.log(
+    "3. 準備ができたら、このターミナルで [Enter] キーを押してください..."
+  );
+  console.log("=".repeat(60));
+
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  await new Promise((resolve) => {
+    rl.question("", () => {
+      rl.close();
+      resolve();
+    });
+  });
+
+  console.log("▶️ 処理を再開します...");
+  try {
+    await page.bringToFront();
+  } catch (e) {}
+
+  return true;
 }
 
 /** MAIN */
