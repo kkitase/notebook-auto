@@ -534,7 +534,6 @@ async function main() {
   try {
     // 1. 全てのユニークURLのタイトルを一括取得
     const urlTitles = await fetchPageTitles(context, allUrls);
-    const page = await context.newPage();
 
     // 2. 各ノートブックを順番に処理
     for (let i = 0; i < notebooks.length; i++) {
@@ -544,6 +543,8 @@ async function main() {
         "================================================================"
       );
 
+      // 各ノートブックごとに新しいタブを開く
+      const page = await context.newPage();
       await page.goto(notebookUrl, {
         waitUntil: "domcontentloaded",
         timeout: 60000,
